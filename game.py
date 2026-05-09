@@ -1,14 +1,27 @@
 import pygame
-import data
-import copy
 import math
 import sys
 import os
 import random
 
 # Nastavení cesty k souborům
-slozka = os.path.dirname(__file__)
 def assets(jmeno_souboru):
+    # 1. Běžíme jako normální skript v Pythonu (při programování)
+    if not getattr(sys, 'frozen', False):
+        slozka = os.path.dirname(__file__)
+        return os.path.join(slozka, "assets", jmeno_souboru)
+
+    # 2. Běžíme jako zkompilovaný .exe soubor
+    cesta_k_exe = os.path.dirname(sys.executable)
+    modovana_cesta = os.path.join(cesta_k_exe, "assets", jmeno_souboru)
+
+    # Zkusíme zjistit, jestli hráč nevytvořil složku "assets" vedle .exe souboru
+    if os.path.exists(modovana_cesta):
+        return modovana_cesta # Našel se mód! Použijeme ho.
+    
+    # 3. Mód neexistuje, použijeme originální obrázky zabalené uvnitř .exe
+    return os.path.join(sys._MEIPASS, "assets", jmeno_souboru)
+        
     return os.path.join(slozka, "assets", jmeno_souboru)
 
 pygame.init()
