@@ -192,8 +192,9 @@ while bezi:
     for enemy in enemies:
         direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
         enemy_uhel = -math.degrees(direction) -90
-        enemy[0] += math.cos(direction) * 2
-        enemy[1] += math.sin(direction) * 2
+        if menu == False:
+            enemy[0] += math.cos(direction) * 2
+            enemy[1] += math.sin(direction) * 2
         draw("&\\enemy1", enemy[0] +x, enemy[1] +y, enemy_uhel)
         for laser in lasers:
             if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 200:
