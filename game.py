@@ -39,7 +39,7 @@ textures = {
     "left": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Left.png")).convert_alpha(), 15),
     "right": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Right.png")).convert_alpha(), 15),
     "sawer": pygame.transform.scale_by(pygame.image.load(assets("enemies/sawer/sawer.png")).convert_alpha(), 15),
-    "healthbar": pygame.transform.scale_by(pygame.image.load(assets("healthbar/healthbar.png")).convert_alpha(), 15)
+    "healthbar": pygame.transform.scale_by(pygame.image.load(assets("healthbar/healthbar.png")).convert_alpha(), 4)
 }
 
 # Používáme dopředná lomítka pro bezproblémový běh na Windows i Linuxu
@@ -127,6 +127,7 @@ last_animation_time1 = 0
 last_turbo_time = 0
 uhel_lode = 0
 game_over = False
+sure = False
 max_health = 50
 health = max_health
 space_pressed = False
@@ -141,6 +142,7 @@ choosed_button = 0
 big_big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 100)
 big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 50)
 retro_font = pygame.font.Font(assets("fonts/press_start.ttf"), 36)
+small_font = pygame.font.Font(assets("fonts/press_start.ttf"), 15)
 accrotation = 0
 acc = 0
 x = 0
@@ -161,6 +163,8 @@ menu_rect = pygame.Rect(0, 0, 0, 0)
 quit_rect = pygame.Rect(0, 0, 0, 0)
 back_rect = pygame.Rect(0, 0, 0, 0)
 delete_rect = pygame.Rect(0, 0, 0, 0)
+yes_rect = pygame.Rect(0, 0, 0, 0)
+no_rect = pygame.Rect(0, 0, 0, 0)
 
 while bezi:
     aktualni_cas = pygame.time.get_ticks()
@@ -182,34 +186,51 @@ while bezi:
         #menu actions
         else:
             #mouse
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN and not sure:
                 if back_rect.collidepoint(event.pos) and not game_over:  # Levé tlačítko myši
                     menu = not menu
                 if delete_rect.collidepoint(event.pos):  # Levé tlačítko myši
                     #delete progress
-                    pass
+                    sure = True
                 if quit_rect.collidepoint(event.pos):  # Levé tlačítko myši
                     bezi = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and sure:
+                if yes_rect.collidepoint(event.pos):  # Levé tlačítko myši
+                    reset = True
+                    sure = False
+                if no_rect.collidepoint(event.pos):  # Levé tlačítko myši
+                    sure = False
 
             #choosing of buttons by keys
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN and not sure:
                 if (event.key == pygame.K_UP or event.key == pygame.K_w):
                     if choosed_button >= 2:choosed_button -= 1
                     else: choosed_button = 3
                 if (event.key == pygame.K_DOWN or event.key == pygame.K_s):
                     if choosed_button <= 2:choosed_button += 1
                     else: choosed_button = 1
+            elif event.type == pygame.KEYDOWN and sure:
+                if (event.key == pygame.K_LEFT or event.key == pygame.K_a):
+                    choosed_button = 1
+                if (event.key == pygame.K_RIGHT or event.key == pygame.K_d):
+                    choosed_button = 2
 
             #keys
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_KP_ENTER or event.key == pygame.K_RETURN:
-                    if choosed_button == 1 and not game_over:
+                if event.key == pygame.K_KP_ENTER or event.key == pygame.K_RETURN and not sure:
+                    if choosed_button == 1 and not game_over and not sure:   
                         menu = not menu
                     elif choosed_button == 2:
                         #delete progress
-                        pass
+                        sure = True
                     elif choosed_button == 3:
                         bezi = False
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER and sure:
+                    if choosed_button == 1:   
+                        reset = True
+                        sure = False
+                    elif choosed_button == 2:
+                        sure = False
     objects.clear()
     for i in range(11):
         objects.append([])
@@ -332,13 +353,20 @@ while bezi:
     #menu actions
     else:
         #mouse position
-        mouse_pos = pygame.mouse.get_pos()
-        if back_rect.collidepoint(mouse_pos):
-            choosed_button = 1
-        elif delete_rect.collidepoint(mouse_pos):
-            choosed_button = 2
-        elif quit_rect.collidepoint(mouse_pos):
-            choosed_button = 3
+        if not sure:
+            mouse_pos = pygame.mouse.get_pos()
+            if back_rect.collidepoint(mouse_pos):
+                choosed_button = 1
+            elif delete_rect.collidepoint(mouse_pos):
+                choosed_button = 2
+            elif quit_rect.collidepoint(mouse_pos):
+                choosed_button = 3
+        else:
+            mouse_pos = pygame.mouse.get_pos()
+            if yes_rect.collidepoint(mouse_pos):
+                choosed_button = 1
+            elif no_rect.collidepoint(mouse_pos):
+                choosed_button = 2
 
     #vykreslování
     okno.fill((30, 30, 30))
@@ -347,12 +375,21 @@ while bezi:
     draw()
 
     #status bar
-    if health < 0:
+    if health < 0 and menu == False:
         health = 0
         game_over = True
     text = retro_font.render(str(int(health)) + " / " + str(max_health), True, (255, 255, 255))
     rect = text.get_rect(center=(sirka - sirka//2, vyska - vyska//20))
     okno.blit(text, rect)
+    rect_health_icon = textures["healthbar"].get_rect()
+    rect_health_icon.centery = rect.centery
+    rect_health_icon.right = rect.left - 10
+    okno.blit(textures["healthbar"], rect_health_icon)
+    rect_health_icon = textures["healthbar"].get_rect()
+    rect_health_icon.centery = rect.centery
+    rect_health_icon.left = rect.right + 10
+    okno.blit(textures["healthbar"], rect_health_icon)
+
 
     #non-menu
     if menu == False and game_over == False:
@@ -382,7 +419,7 @@ while bezi:
         if choosed_button == 1 and game_over:
             text_back = retro_font.render("back to game", True, (130, 130, 130))
             back_rect = text_back.get_rect(center=(sirka//2, first_button))
-        elif choosed_button == 1 and not game_over:
+        elif choosed_button == 1 and not game_over and not sure:
             text_back = big_font.render("back to game", True, (255, 255, 255))
             back_rect = text_back.get_rect(center=(sirka//2, first_button))
         else:
@@ -391,22 +428,43 @@ while bezi:
         okno.blit(text_back, back_rect)
 
         #delete progress tlacitko
-        if choosed_button == 2:
-            text_delete = big_font.render("delete progress", True, (255, 0, 0))
+        if choosed_button == 2 or sure:
+            text_delete = big_font.render("new game", True, (200, 200, 255))
             delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
+            text_delete_info = small_font.render("this will completly delete your progress", True, (255, 0, 0))
+            delete_info_rect = text_delete_info.get_rect(center=(sirka//2, first_button + 150))
+            okno.blit(text_delete_info, delete_info_rect)
         else:
-            text_delete = retro_font.render("delete progress", True, (255, 255, 255))
+            text_delete = retro_font.render("new game", True, (255, 255, 255))
             delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
         okno.blit(text_delete, delete_rect)
 
         #quit tlacitko
-        if choosed_button == 3:
+        if choosed_button == 3 and not sure:
             text_quit = big_font.render("quit", True, (255, 255, 255))
             quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
         else:
             text_quit = retro_font.render("quit", True, (255, 255, 255))
             quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
         okno.blit(text_quit, quit_rect)
+        #are you sure
+        if sure:
+            okno.blit(overlay, (0, 0))  # Vykreslení overlaye přes celé okno
+            text_sure = big_font.render("are you sure?", True, (255, 255, 255))
+            text_sure_rect = text_sure.get_rect(center=(sirka//2, vyska//2 - 50))
+            okno.blit(text_sure, text_sure_rect)
+            if choosed_button == 1:
+                text_yes = big_font.render("yes", True, (150, 0, 0))
+                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50))
+                text_no = retro_font.render("no", True, (255, 255, 255))
+                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50))
+            elif choosed_button == 2:
+                text_yes = retro_font.render("yes", True, (255, 255, 255))
+                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50))
+                text_no = big_font.render("no", True, (0, 0, 150))
+                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50))
+            okno.blit(text_yes, yes_rect)  
+            okno.blit(text_no, no_rect)
     #omezovac snímků za sekundu
     pygame.display.flip()
     hodiny.tick(60)
