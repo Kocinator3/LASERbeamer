@@ -26,60 +26,92 @@ def assets(jmeno_souboru):
     
     # 3. Mód neexistuje, použijeme originální obrázky zabalené uvnitř .exe
     return os.path.join(sys._MEIPASS, "assets", jmeno_souboru)
-        
-    return os.path.join(slozka, "assets", jmeno_souboru)
-
 
 okno = pygame.display.set_mode((sirka, vyska))
 pygame.display.set_caption("Hello world")
 textures = {
-    "normal": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Spaceship.png")).convert_alpha(), 15),
-    "forward1": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Forward1.png")).convert_alpha(), 15),
-    "forward2": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Forward2.png")).convert_alpha(), 15),
-    "forward3": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Forward3.png")).convert_alpha(), 15),
-    "forward4": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Forward4.png")).convert_alpha(), 15),
-    "forward5": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Forward5.png")).convert_alpha(), 15),
-    "left": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Left.png")).convert_alpha(), 15),
-    "right": pygame.transform.scale_by(pygame.image.load(assets("ship\ship1\Right.png")).convert_alpha(), 15),
-    "enemy1": pygame.transform.scale_by(pygame.image.load(assets("enemies\enemy1\Enemy1.jpg")).convert_alpha(), 15),
+    "normal": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Spaceship.png")).convert_alpha(), 15),
+    "forward1": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward1.png")).convert_alpha(), 15),
+    "forward2": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward2.png")).convert_alpha(), 15),
+    "forward3": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward3.png")).convert_alpha(), 15),
+    "forward4": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward4.png")).convert_alpha(), 15),
+    "forward5": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward5.png")).convert_alpha(), 15),
+    "left": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Left.png")).convert_alpha(), 15),
+    "right": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Right.png")).convert_alpha(), 15),
+    "sawer": pygame.transform.scale_by(pygame.image.load(assets("enemies/sawer/sawer.png")).convert_alpha(), 15),
+    "healthbar": pygame.transform.scale_by(pygame.image.load(assets("healthbar/healthbar.png")).convert_alpha(), 15)
 }
+
+# Používáme dopředná lomítka pro bezproblémový běh na Windows i Linuxu
+
+for i, name in enumerate(os.listdir(assets("enemies/sawer/saws"))):
+    relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
+    textures["saws" + str(i)] = pygame.transform.scale_by(
+        pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15
+    )
+
+for i, name in enumerate(os.listdir(assets("enemies/sawer/trays"))):
+    relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
+    textures["trays" + str(i)] = pygame.transform.scale_by(
+        pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15
+    )
+
 textura = "normal"
+
 objects = []
 
-def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255)):
+def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255), vrstva=0):
     if textura == None:
         #renderování textur
-        for object in objects:
-            if not isinstance(object[0], str):
-                print("Chyba textury")
-            elif object[0].startswith("&\\"):
-                rotated_player = pygame.transform.rotate(textures[object[0][2:]], object[3])
-                new_player = rotated_player.get_rect(center=(object[1], object[2]))
-                okno.blit(rotated_player, new_player)
-            elif object[0].startswith("$\\"):
-                parts = object[0][2:].split("|")
-                if parts[0] == "circle":
-                    pygame.draw.circle(okno, object[4], (object[1], object[2]), float(parts[1]))
-                if parts[0] == "rect":
-                    rect_surface = pygame.Surface((float(parts[1]), float(parts[2])), pygame.SRCALPHA)
-                    pygame.draw.rect(rect_surface, object[4], (0, 0, float(parts[1]), float(parts[2])))
-                    rotated_rect = pygame.transform.rotate(rect_surface, object[3])
-                    new_rect = rotated_rect.get_rect(center=(object[1], object[2]))
-                    okno.blit(rotated_rect, new_rect)
-            else: pass
+        for i in range(len(objects)):
+            for object in objects[i]:
+                if not isinstance(object[0], str):
+                    print("Chyba textury")
+                elif object[0].startswith("&\\"):
+                    rotated_player = pygame.transform.rotate(textures[object[0][2:]], object[3])
+                    new_player = rotated_player.get_rect(center=(object[1], object[2]))
+                    okno.blit(rotated_player, new_player)
+                elif object[0].startswith("$\\"):
+                    parts = object[0][2:].split("|")
+                    if parts[0] == "circle":
+                        pygame.draw.circle(okno, object[4], (object[1], object[2]), float(parts[1]))
+                    if parts[0] == "rect":
+                        rect_surface = pygame.Surface((float(parts[1]), float(parts[2])), pygame.SRCALPHA)
+                        pygame.draw.rect(rect_surface, object[4], (0, 0, float(parts[1]), float(parts[2])))
+                        rotated_rect = pygame.transform.rotate(rect_surface, object[3])
+                        new_rect = rotated_rect.get_rect(center=(object[1], object[2]))
+                        okno.blit(rotated_rect, new_rect)
+                else: pass
     else: 
-        objects.append((textura, x, y, uhel_lode, barva))
+        objects[vrstva].append((textura, x, y, uhel_lode, barva))
 
-def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle):
+def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle, laser_length=20, laser_width=5, laser_color=(255, 0, 0), laser_texture=None):
         enemy_img = pygame.transform.rotate(textures[enemy_texture], enemy_angel)
         enemy_mask = pygame.mask.from_surface(enemy_img)
-        laser_surf = pygame.Surface((5, 20), pygame.SRCALPHA)
-        pygame.draw.rect(laser_surf, (255, 0, 0), (0, 0, 5, 20))
-        laser_img = pygame.transform.rotate(laser_surf, laser_angle)
-        laser_mask = pygame.mask.from_surface(laser_img)
-        offset_x = (laser_x - laser_img.get_width()//2) - (enemy_x - enemy_img.get_width()//2)
-        offset_y = (laser_y - laser_img.get_height()//2) - (enemy_y - enemy_img.get_height()//2)
-        return enemy_mask.overlap(laser_mask, (offset_x, offset_y)) != None
+        if laser_texture == None:
+            laser_surf = pygame.Surface((laser_width, laser_length), pygame.SRCALPHA)
+            pygame.draw.rect(laser_surf, laser_color, (0, 0, laser_width, laser_length))
+            laser_img = pygame.transform.rotate(laser_surf, laser_angle)
+            laser_mask = pygame.mask.from_surface(laser_img)
+        else:
+            laser_img = pygame.transform.rotate(textures[laser_texture], laser_angle)
+            laser_mask = pygame.mask.from_surface(laser_img)
+        offset_x = int((laser_x - laser_img.get_width()//2) - (enemy_x - enemy_img.get_width()//2))
+        offset_y = int((laser_y - laser_img.get_height()//2) - (enemy_y - enemy_img.get_height()//2))
+        
+        # 1. Zjistíme, kolik pixelů laseru a pily se fyzicky překrývá
+        prekryv_pixelu = enemy_mask.overlap_area(laser_mask, (offset_x, offset_y))
+        
+        if prekryv_pixelu > 0:
+            # 2. Zjistíme celkový počet neprůhledných pixelů pily (její "plochu")
+            plocha_pily = enemy_mask.count()
+            
+            # 3. Vypočítáme, kolik procent pily bylo zasaženo
+            procento_zasahu = (prekryv_pixelu / plocha_pily) * 100
+            
+            return procento_zasahu
+        else:
+            return 0 # Žádná kolize
 
 #random stars
 stars = []
@@ -89,18 +121,26 @@ for _ in range(200):
 lasers = []
 lasery_k_vymazani = []
 enemys_k_vymazani = []
-enemies = [[0,0], [1000, 1000], [-1000, -1000], [1000, -1000], [-1000, 1000]]
+enemies = [[0,0,0 ,5], [1000, 1000, 0, 5], [-1000, -1000, 0, 5], [1000, -1000, 0, 5], [-1000, 1000, 0, 5]]
 bezi = True
 last_animation_time1 = 0
 last_turbo_time = 0
 uhel_lode = 0
+game_over = False
+max_health = 50
+health = max_health
+space_pressed = False
+sawcounter = 0
+sawindex = 0
+traycounter = 0
+trayindex = 0
 hodiny = pygame.time.Clock()
 menu = True
 escpressed = False
 choosed_button = 0
-big_big_font = pygame.font.Font(assets("fonts\press_start.ttf"), 100)
-big_font = pygame.font.Font(assets("fonts\press_start.ttf"), 50)
-retro_font = pygame.font.Font(assets("fonts\press_start.ttf"), 36)
+big_big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 100)
+big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 50)
+retro_font = pygame.font.Font(assets("fonts/press_start.ttf"), 36)
 accrotation = 0
 acc = 0
 x = 0
@@ -129,7 +169,7 @@ while bezi:
         if event.type == pygame.QUIT:
             bezi = False
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            if event.key == pygame.K_ESCAPE and game_over == False:
                 menu = not menu
                 choosed_button = 0
         #non-menu actions
@@ -143,7 +183,7 @@ while bezi:
         else:
             #mouse
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if back_rect.collidepoint(event.pos):  # Levé tlačítko myši
+                if back_rect.collidepoint(event.pos) and not game_over:  # Levé tlačítko myši
                     menu = not menu
                 if delete_rect.collidepoint(event.pos):  # Levé tlačítko myši
                     #delete progress
@@ -163,7 +203,7 @@ while bezi:
             #keys
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_KP_ENTER or event.key == pygame.K_RETURN:
-                    if choosed_button == 1:
+                    if choosed_button == 1 and not game_over:
                         menu = not menu
                     elif choosed_button == 2:
                         #delete progress
@@ -171,51 +211,17 @@ while bezi:
                     elif choosed_button == 3:
                         bezi = False
     objects.clear()
-    
-    #stars
-    for star in stars:
-        star_distance = star[2]
-        draw("$\\circle|" + str(star_distance*2), star[0] + x * star_distance + (sirka//2), star[1] + y * star_distance + (vyska//2))
-    #lasers
-    for laser in lasers:
-        laser_x = laser[0] +x
-        laser_y = laser[1] +y
-        draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
-        laser[0] += math.cos(math.radians(laser[2])) * 20
-        laser[1] += math.sin(math.radians(laser[2])) * -20
-        if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
-            lasers.remove(laser)
-        else:
-            
-            draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
-    #enemies
-    for enemy in enemies:
-        direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
-        enemy_uhel = -math.degrees(direction) -90
-        if menu == False:
-            enemy[0] += math.cos(direction) * 2
-            enemy[1] += math.sin(direction) * 2
-        draw("&\\enemy1", enemy[0] +x, enemy[1] +y, enemy_uhel)
-        for laser in lasers:
-            if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 200:
-                if colison("enemy1", enemy[0], enemy[1], enemy_uhel, laser[0], laser[1], laser[2]):
-                    if laser not in lasery_k_vymazani:
-                        lasery_k_vymazani.append(laser)
-                    if enemy not in enemys_k_vymazani:
-                        enemys_k_vymazani.append(enemy)
-    
-    for laser in lasery_k_vymazani:
-        if laser in lasers:
-            lasers.remove(laser)
-    for enemy in enemys_k_vymazani:
-        if enemy in enemies:
-            enemies.remove(enemy)
+    for i in range(11):
+        objects.append([])
 
-    #player
+        #player
     if menu == False:
         #keys
-        if pygame.key.get_pressed()[pygame.K_SPACE]:
-            lasers.append([sirka//2 -x, vyska//2 -y, uhel_lode ])
+        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed != True:
+            lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 200, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 200, uhel_lode ])
+            space_pressed = True
+        if not pygame.key.get_pressed()[pygame.K_SPACE]:
+            space_pressed = False
         if pygame.key.get_pressed()[pygame.K_a]:
             uhel_lode += 4
         if pygame.key.get_pressed()[pygame.K_d]:
@@ -225,6 +231,8 @@ while bezi:
             last_turbo_time = aktualni_cas
         if pygame.key.get_pressed()[pygame.K_w]:
             acc += 0.1
+            if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                acc += 0.2
             if pygame.key.get_pressed()[pygame.K_a]:
                 textura = "right"
                 if aktualni_cas - last_animation_time1 > 100:
@@ -255,6 +263,71 @@ while bezi:
         velocity_y = math.sin(math.radians(uhel_lode)) * acc
         accrotation *= 0.9
         acc *= 0.9
+    draw("&\\" + textura, sirka//2, vyska//2, uhel_lode, vrstva = 5)
+    
+    #stars
+    for star in stars:
+        star_distance = star[2]
+        draw("$\\circle|" + str(star_distance*2), star[0] + x * star_distance + (sirka//2), star[1] + y * star_distance + (vyska//2))
+    #lasers
+    for laser in lasers:
+        laser_x = laser[0] +x
+        laser_y = laser[1] +y
+        draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
+        laser[0] += math.cos(math.radians(laser[2])) * 50
+        laser[1] += math.sin(math.radians(laser[2])) * -50
+        if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
+            lasers.remove(laser)
+        else:
+            
+            draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
+    #enemies
+    for enemy in enemies:
+        direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
+        enemy_uhel = enemy[2]
+        if menu == False:
+            enemy_uhel += 1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 > 10 else (-1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 < -10 else 0)
+        enemy[2] = enemy_uhel
+        vzdalenost = math.hypot(enemy[0] - (sirka//2 - x), enemy[1] - (vyska//2 - y))
+        if menu == False and vzdalenost  > 150:
+            enemy[0] += math.cos(math.radians(-enemy_uhel)) * 0.8
+            enemy[1] += math.sin(math.radians(-enemy_uhel)) * 0.8
+        draw("&\\saws" + str(sawindex), enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=4)
+        draw("&\\sawer", enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=6)
+        draw("&\\trays" + str(trayindex), enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=6)
+
+        #animation
+        if sawcounter < aktualni_cas and menu == False:
+            sawcounter = aktualni_cas + 100
+            sawindex += 1
+            if sawindex >= os.listdir(assets("enemies/sawer/saws")).__len__():
+                sawindex = 0
+
+        if traycounter < aktualni_cas and menu == False:
+            traycounter = aktualni_cas + 100
+            trayindex += 1
+            if trayindex >= os.listdir(assets("enemies/sawer/trays")).__len__():
+                trayindex = 0
+
+        if vzdalenost <= 500:
+            if colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal")>0:
+                health -= 0.5 * colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal") / 100
+                print(health)
+        for laser in lasers:
+            if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 500:
+                if colison("sawer", enemy[0], enemy[1], enemy_uhel, laser[0], laser[1], laser[2]) >0:
+                    enemy[3] -= 1
+                    if laser not in lasery_k_vymazani:
+                        lasery_k_vymazani.append(laser)
+                    if enemy not in enemys_k_vymazani and enemy[3] <= 0:
+                        enemys_k_vymazani.append(enemy)
+    
+    for laser in lasery_k_vymazani:
+        if laser in lasers:
+            lasers.remove(laser)
+    for enemy in enemys_k_vymazani:
+        if enemy in enemies:
+            enemies.remove(enemy)
 
     #menu actions
     else:
@@ -268,52 +341,72 @@ while bezi:
             choosed_button = 3
 
     #vykreslování
-    draw("&\\" + textura, sirka//2, vyska//2, uhel_lode)
     okno.fill((30, 30, 30))
     x -= velocity_x
     y += velocity_y
     draw()
 
+    #status bar
+    if health < 0:
+        health = 0
+        game_over = True
+    text = retro_font.render(str(int(health)) + " / " + str(max_health), True, (255, 255, 255))
+    rect = text.get_rect(center=(sirka - sirka//2, vyska - vyska//20))
+    okno.blit(text, rect)
+
     #non-menu
-    if menu == False:
+    if menu == False and game_over == False:
         #game is running
         text_menu = retro_font.render("menu", True, (255, 255, 255))
-        menu_rect = text_menu.get_rect(center=(sirka//20, 50))
+        menu_rect = text_menu.get_rect(x=sirka//20, y=vyska//20)
         okno.blit(text_menu, menu_rect)
-    #menu
     else:
         velocity_x, velocity_y = 0, 0
-        mouse_pos = pygame.mouse.get_pos()
-        #menu 
         okno.blit(overlay, (0, 0))  # Vykreslení overlaye přes celé okno
-        text = big_big_font.render("LASER beamer", True, (255, 255, 255))
-        text_rect = text.get_rect(center=(sirka//2, vyska//15))
-        okno.blit(text, text_rect)
+
+        #game over
+        if game_over:
+            menu = True
+            text_game_over = big_big_font.render("GAME OVER", True, (255, 0, 0))
+            game_over_rect = text_game_over.get_rect(center=(sirka//2, vyska//4))
+            okno.blit(text_game_over, game_over_rect)
+            first_button = vyska//2
+        #menu
+        else:
+            text = big_big_font.render("LASER beamer", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(sirka//2, vyska//15 + 25))
+            okno.blit(text, text_rect)
+            first_button = vyska//15 + 150
+
         #back to game tlacitko
-        if choosed_button == 1:
+        if choosed_button == 1 and game_over:
+            text_back = retro_font.render("back to game", True, (130, 130, 130))
+            back_rect = text_back.get_rect(center=(sirka//2, first_button))
+        elif choosed_button == 1 and not game_over:
             text_back = big_font.render("back to game", True, (255, 255, 255))
-            back_rect = text_back.get_rect(center=(sirka//2, vyska//15 + 150))
+            back_rect = text_back.get_rect(center=(sirka//2, first_button))
         else:
             text_back = retro_font.render("back to game", True, (255, 255, 255))
-            back_rect = text_back.get_rect(center=(sirka//2, vyska//15 + 150))
+            back_rect = text_back.get_rect(center=(sirka//2, first_button))
         okno.blit(text_back, back_rect)
+
         #delete progress tlacitko
         if choosed_button == 2:
             text_delete = big_font.render("delete progress", True, (255, 0, 0))
-            delete_rect = text_delete.get_rect(center=(sirka//2, vyska//15 + 250))
+            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
         else:
             text_delete = retro_font.render("delete progress", True, (255, 255, 255))
-            delete_rect = text_delete.get_rect(center=(sirka//2, vyska//15 + 250))
+            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
         okno.blit(text_delete, delete_rect)
+
         #quit tlacitko
         if choosed_button == 3:
             text_quit = big_font.render("quit", True, (255, 255, 255))
-            quit_rect = text_quit.get_rect(center=(sirka//2, vyska//15 + 350))
+            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
         else:
             text_quit = retro_font.render("quit", True, (255, 255, 255))
-            quit_rect = text_quit.get_rect(center=(sirka//2, vyska//15 + 350))
+            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
         okno.blit(text_quit, quit_rect)
-
     #omezovac snímků za sekundu
     pygame.display.flip()
     hodiny.tick(60)
