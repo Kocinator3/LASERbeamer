@@ -112,6 +112,19 @@ def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, lase
             return procento_zasahu
         else:
             return 0 # Žádná kolize
+        
+cooldown_time = 0
+last_used_time = 0
+        
+def cooldown(cooldown_time_parameter = None, last_used_time_parameter = None):
+    current_time = pygame.time.get_ticks()
+    if cooldown_time_parameter == None and last_used_time_parameter == None:
+        for i in range(int(((current_time - last_used_time) / cooldown_time) * 10)):
+            if i > 10: break
+            pygame.draw.rect(okno, (0, 255, 0), (10 + (i * rect_health_icon.right + 40 / 10), 50), rect_health_icon.right + 40 / 10, 40)
+    else:
+        cooldown_time = cooldown_time_parameter
+        last_used_time = last_used_time_parameter
 
 #random stars
 stars = []
@@ -132,6 +145,11 @@ max_health = 50
 health = max_health
 space_pressed = False
 sawcounter = 0
+start_laser_time = 0
+hold_laser_index = 0
+range_hold_space = 45
+hold_e_action = False
+e_cooldown = 0
 sawindex = 0
 traycounter = 0
 trayindex = 0
@@ -238,10 +256,24 @@ while bezi:
         #player
     if menu == False:
         #keys
-        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed != True:
-            lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 200, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 200, uhel_lode ])
+        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == False:
             space_pressed = True
-        if not pygame.key.get_pressed()[pygame.K_SPACE]:
+            start_laser_time = aktualni_cas
+            start_direction = uhel_lode
+        if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and aktualni_cas - start_laser_time > 200:
+            start_direction = uhel_lode
+            while hold_laser_index < range_hold_space:
+                uhel_lode = start_direction - range_hold_space/2 + hold_laser_index
+                hold_laser_index += 5
+                start_laser_time = aktualni_cas
+                lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 200, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 200, uhel_lode, 0.25, 50])
+                uhel_lode = start_direction
+        if pygame.key.get_pressed()[pygame.K_SPACE] == False:
+            if aktualni_cas - start_laser_time < 200:
+                lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 200, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 200, uhel_lode, 1, 50])
+            space_pressed = False
+            hold_laser_index = 0
+        if not pygame.key.get_pressed()[pygame.K_SPACE] :
             space_pressed = False
         if pygame.key.get_pressed()[pygame.K_a]:
             uhel_lode += 4
@@ -292,16 +324,17 @@ while bezi:
         draw("$\\circle|" + str(star_distance*2), star[0] + x * star_distance + (sirka//2), star[1] + y * star_distance + (vyska//2))
     #lasers
     for laser in lasers:
-        laser_x = laser[0] +x
-        laser_y = laser[1] +y
-        draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
-        laser[0] += math.cos(math.radians(laser[2])) * 50
-        laser[1] += math.sin(math.radians(laser[2])) * -50
-        if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
-            lasers.remove(laser)
-        else:
-            
+            laser_x = laser[0] +x
+            laser_y = laser[1] +y
+            speed = laser[4]
             draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
+            if menu == False:
+                laser[0] += math.cos(math.radians(laser[2])) * speed
+                laser[1] += math.sin(math.radians(laser[2])) * -speed
+                if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
+                    lasers.remove(laser)
+                else:
+                    draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, (255, 0, 0))
     #enemies
     for enemy in enemies:
         direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
@@ -337,7 +370,7 @@ while bezi:
         for laser in lasers:
             if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 500:
                 if colison("sawer", enemy[0], enemy[1], enemy_uhel, laser[0], laser[1], laser[2]) >0:
-                    enemy[3] -= 1
+                    enemy[3] -= laser[3]
                     if laser not in lasery_k_vymazani:
                         lasery_k_vymazani.append(laser)
                     if enemy not in enemys_k_vymazani and enemy[3] <= 0:
@@ -389,6 +422,7 @@ while bezi:
     rect_health_icon.centery = rect.centery
     rect_health_icon.left = rect.right + 10
     okno.blit(textures["healthbar"], rect_health_icon)
+    cooldown()
 
 
     #non-menu
