@@ -7,8 +7,8 @@ import random
 pygame.init()
 
 info_monitoru = pygame.display.Info()
-sirka = info_monitoru.current_w
-vyska = info_monitoru.current_h
+sirka = 800
+vyska = 500
 
 def assets(jmeno_souboru):
     # 1. Běžíme jako normální skript v Pythonu (při programování)
@@ -26,37 +26,45 @@ def assets(jmeno_souboru):
     
     # 3. Mód neexistuje, použijeme originální obrázky zabalené uvnitř .exe
     return os.path.join(sys._MEIPASS, "assets", jmeno_souboru)
+def refresh_screen():
+    global sirka, vyska, okno, textures, big_big_font, big_font, retro_font, small_font, textura
+    info_monitoru = pygame.display.Info()
 
-okno = pygame.display.set_mode((sirka, vyska))
-pygame.display.set_caption("Hello world")
-textures = {
-    "normal": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Spaceship.png")).convert_alpha(), 15),
-    "forward1": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward1.png")).convert_alpha(), 15),
-    "forward2": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward2.png")).convert_alpha(), 15),
-    "forward3": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward3.png")).convert_alpha(), 15),
-    "forward4": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward4.png")).convert_alpha(), 15),
-    "forward5": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward5.png")).convert_alpha(), 15),
-    "left": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Left.png")).convert_alpha(), 15),
-    "right": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Right.png")).convert_alpha(), 15),
-    "sawer": pygame.transform.scale_by(pygame.image.load(assets("enemies/sawer/sawer.png")).convert_alpha(), 15),
-    "healthbar": pygame.transform.scale_by(pygame.image.load(assets("healthbar/healthbar.png")).convert_alpha(), 4)
-}
+    okno = pygame.display.set_mode((sirka, vyska), pygame.RESIZABLE)
+    pygame.display.set_caption("Hello world")
+    textures = {
+        "normal": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Spaceship.png")).convert_alpha(), 15*sirka/2560),
+        "forward1": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward1.png")).convert_alpha(), 15*sirka/2560),
+        "forward2": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward2.png")).convert_alpha(), 15*sirka/2560),
+        "forward3": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward3.png")).convert_alpha(), 15*sirka/2560),
+        "forward4": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward4.png")).convert_alpha(), 15*sirka/2560),
+        "forward5": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Forward5.png")).convert_alpha(), 15*sirka/2560),
+        "left": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Left.png")).convert_alpha(), 15*sirka/2560),
+        "right": pygame.transform.scale_by(pygame.image.load(assets("ship/ship1/Right.png")).convert_alpha(), 15*sirka/2560),
+        "sawer": pygame.transform.scale_by(pygame.image.load(assets("enemies/sawer/sawer.png")).convert_alpha(), 15*sirka/2560),
+        "healthbar": pygame.transform.scale_by(pygame.image.load(assets("healthbar/healthbar.png")).convert_alpha(), 4*sirka/2560)
+    }
+    big_big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 100 * sirka // 2560)
+    big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 50*sirka//2560)
+    retro_font = pygame.font.Font(assets("fonts/press_start.ttf"), 36*sirka//2560)
+    small_font = pygame.font.Font(assets("fonts/press_start.ttf"), 15*sirka//2560)
 
-# Používáme dopředná lomítka pro bezproblémový běh na Windows i Linuxu
+    # Používáme dopředná lomítka pro bezproblémový běh na Windows i Linuxu
 
-for i, name in enumerate(os.listdir(assets("enemies/sawer/saws"))):
-    relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
-    textures["saws" + str(i)] = pygame.transform.scale_by(
-        pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15
-    )
+    for i, name in enumerate(os.listdir(assets("enemies/sawer/saws"))):
+        relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
+        textures["saws" + str(i)] = pygame.transform.scale_by(
+            pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+        )
 
-for i, name in enumerate(os.listdir(assets("enemies/sawer/trays"))):
-    relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
-    textures["trays" + str(i)] = pygame.transform.scale_by(
-        pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15
-    )
+    for i, name in enumerate(os.listdir(assets("enemies/sawer/trays"))):
+        relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
+        textures["trays" + str(i)] = pygame.transform.scale_by(
+            pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+        )
+    textura = "normal"
 
-textura = "normal"
+refresh_screen()
 
 objects = []
 
@@ -113,12 +121,14 @@ def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, lase
         else:
             return 0 # Žádná kolize
         
-cooldown_time = 0
-last_used_time = 0
+cooldown_time = 1
+last_used_time = 1
+current_time = 1
         
 def cooldown(cooldown_time_parameter = None, last_used_time_parameter = None):
-    current_time = pygame.time.get_ticks()
-    if cooldown_time_parameter == None and last_used_time_parameter == None:
+    global current_time
+    global cooldown_time, last_used_time
+    if cooldown_time_parameter == None and last_used_time_parameter ==None:
         for i in range(int(((current_time - last_used_time) / cooldown_time) * 10)):
             if i > 10: break
             pygame.draw.rect(okno, (0, 255, 0), (10 + (i * rect_health_icon.right + 40 / 10), 50), rect_health_icon.right + 40 / 10, 40)
@@ -157,10 +167,6 @@ hodiny = pygame.time.Clock()
 menu = True
 escpressed = False
 choosed_button = 0
-big_big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 100)
-big_font = pygame.font.Font(assets("fonts/press_start.ttf"), 50)
-retro_font = pygame.font.Font(assets("fonts/press_start.ttf"), 36)
-small_font = pygame.font.Font(assets("fonts/press_start.ttf"), 15)
 accrotation = 0
 acc = 0
 x = 0
@@ -190,6 +196,11 @@ while bezi:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             bezi = False
+        if event.type == pygame.VIDEORESIZE:
+            sirka, vyska = event.size
+            overlay = pygame.Surface((sirka, vyska), pygame.SRCALPHA)
+            refresh_screen()
+        overlay.fill((0, 0, 0, 150))
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE and game_over == False:
                 menu = not menu
@@ -200,7 +211,6 @@ while bezi:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1 and menu_rect.collidepoint(event.pos):  # Levé tlačítko myši
                     menu = not menu
-        
         #menu actions
         else:
             #mouse
@@ -256,6 +266,8 @@ while bezi:
         #player
     if menu == False:
         #keys
+        if pygame.key.get_pressed()[pygame.K_p]:
+            cooldown(5000, aktualni_cas)
         if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == False:
             space_pressed = True
             start_laser_time = aktualni_cas
@@ -447,7 +459,7 @@ while bezi:
             text = big_big_font.render("LASER beamer", True, (255, 255, 255))
             text_rect = text.get_rect(center=(sirka//2, vyska//15 + 25))
             okno.blit(text, text_rect)
-            first_button = vyska//15 + 150
+            first_button = vyska//15 + 150*vyska//1080
 
         #back to game tlacitko
         if choosed_button == 1 and game_over:
@@ -464,41 +476,42 @@ while bezi:
         #delete progress tlacitko
         if choosed_button == 2 or sure:
             text_delete = big_font.render("new game", True, (200, 200, 255))
-            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
+            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100*vyska/1080))
             text_delete_info = small_font.render("this will completly delete your progress", True, (255, 0, 0))
-            delete_info_rect = text_delete_info.get_rect(center=(sirka//2, first_button + 150))
+            delete_info_rect = text_delete_info.get_rect(center=(sirka//2, first_button + 150*vyska/1080))
             okno.blit(text_delete_info, delete_info_rect)
         else:
             text_delete = retro_font.render("new game", True, (255, 255, 255))
-            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100))
+            delete_rect = text_delete.get_rect(center=(sirka//2, first_button + 100*vyska/1080))
         okno.blit(text_delete, delete_rect)
 
         #quit tlacitko
         if choosed_button == 3 and not sure:
             text_quit = big_font.render("quit", True, (255, 255, 255))
-            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
+            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200*vyska/1080))
         else:
             text_quit = retro_font.render("quit", True, (255, 255, 255))
-            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200))
+            quit_rect = text_quit.get_rect(center=(sirka//2, first_button + 200*vyska/1080))
         okno.blit(text_quit, quit_rect)
         #are you sure
         if sure:
             okno.blit(overlay, (0, 0))  # Vykreslení overlaye přes celé okno
             text_sure = big_font.render("are you sure?", True, (255, 255, 255))
-            text_sure_rect = text_sure.get_rect(center=(sirka//2, vyska//2 - 50))
+            text_sure_rect = text_sure.get_rect(center=(sirka//2, vyska//2 - 50*vyska/1080))
             okno.blit(text_sure, text_sure_rect)
             if choosed_button == 1:
                 text_yes = big_font.render("yes", True, (150, 0, 0))
-                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50))
+                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50*vyska/1080))
                 text_no = retro_font.render("no", True, (255, 255, 255))
-                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50))
+                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50*vyska/1080))
             elif choosed_button == 2:
                 text_yes = retro_font.render("yes", True, (255, 255, 255))
-                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50))
+                yes_rect = text_yes.get_rect(center=(sirka//2 - 100, vyska//2 + 50*vyska/1080))
                 text_no = big_font.render("no", True, (0, 0, 150))
-                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50))
+                no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50*vyska/1080))
             okno.blit(text_yes, yes_rect)  
             okno.blit(text_no, no_rect)
+    print(vyska)
     #omezovac snímků za sekundu
     pygame.display.flip()
     hodiny.tick(60)
