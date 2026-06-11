@@ -336,19 +336,20 @@ while bezi:
             cooldown(5000, aktualni_cas)
         if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == False and aktualni_cas > last_used_time + cooldown_time:
             space_pressed = True
+            hold_laser = False
             start_laser_time = aktualni_cas
             start_direction = uhel_lode
         if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and aktualni_cas - start_laser_time > 500 and aktualni_cas > last_used_time + cooldown_time:
             start_direction = uhel_lode
             cooldown(1500, aktualni_cas)
+            hold_laser = True
             while hold_laser_index < range_hold_space:
                 uhel_lode = start_direction - range_hold_space/2 + hold_laser_index
                 hold_laser_index += 5
-                start_laser_time = aktualni_cas
                 lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 100, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 100, uhel_lode, 0.65, 25, (0, 0, 255)])
                 uhel_lode = start_direction
         if pygame.key.get_pressed()[pygame.K_SPACE] == False:
-            if aktualni_cas - start_laser_time < 150 and space_pressed == True:
+            if aktualni_cas - start_laser_time < 150 and space_pressed == True and hold_laser == False:
                 cooldown(100, aktualni_cas)
                 lasers.append([sirka//2 -x + math.cos(math.radians(uhel_lode)) * 100, vyska//2 -y - math.sin(math.radians(uhel_lode)) * 100, uhel_lode, 1, 25, (255, 0, 0)])
             space_pressed = False
@@ -370,12 +371,12 @@ while bezi:
                 textura = "right"
                 if aktualni_cas - last_animation_time1 > 100:
                     textura = "forward" + str(random.randint(1, 5))
-                accrotation += 2
+                accrotation += 1
             if pygame.key.get_pressed()[pygame.K_d]:
                 textura = "left"
                 if aktualni_cas - last_animation_time1 > 100:
                     textura = "forward" + str(random.randint(1, 5))
-                accrotation -= 2
+                accrotation -= 1
             elif aktualni_cas - last_animation_time1 > 50:
                 if textura == "forward1":
                     textura = "forward2"
@@ -418,6 +419,8 @@ while bezi:
     #enemies
     if enemy_spawn_time < aktualni_cas and menu == False:
         pass
+
+
     for enemy in enemies:
         direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
         enemy_uhel = enemy[2]
@@ -449,13 +452,12 @@ while bezi:
             if colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal")>0 and health >= 0:
                 health -= 0.5 * colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal") / 100
         for laser in lasers:
-            if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 500:
-                if colison("sawer", enemy[0], enemy[1], enemy_uhel, laser[0], laser[1], laser[2]) >0:
-                    enemy[3] -= laser[3]
-                    if laser not in lasery_k_vymazani:
-                        lasery_k_vymazani.append(laser)
-                    if enemy not in enemys_k_vymazani and enemy[3] <= 0:
-                        enemys_k_vymazani.append(enemy)
+            if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 50:
+                enemy[3] -= laser[3]
+                if laser not in lasery_k_vymazani:
+                    lasery_k_vymazani.append(laser)
+                if enemy not in enemys_k_vymazani and enemy[3] <= 0:
+                    enemys_k_vymazani.append(enemy)
         for laser in lasery_k_vymazani:
             if laser in lasers:
                 lasers.remove(laser)
