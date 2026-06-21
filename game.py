@@ -100,7 +100,7 @@ def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255), vrstva=0):
     else: 
         objects[vrstva].append((textura, x, y, uhel_lode, barva))
 
-def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle, laser_length=20, laser_width=5, laser_color=(255, 0, 0), laser_texture=None):
+def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle=0, laser_length=1, laser_width=1, laser_color=(255, 0, 0), laser_texture=None):
         enemy_img = pygame.transform.rotate(textures[enemy_texture], enemy_angel)
         enemy_mask = pygame.mask.from_surface(enemy_img)
         if laser_texture == None:
@@ -181,7 +181,7 @@ for _ in range(200):
 lasers = []
 lasery_k_vymazani = []
 enemys_k_vymazani = []
-enemies = [[0,0,0 ,5], [1000, 1000, 0, 5], [-1000, -1000, 0, 5], [1000, -1000, 0, 5], [-1000, 1000, 0, 5]]
+enemies = []
 was_menu = False 
 bezi = True
 last_animation_time1 = 0
@@ -404,26 +404,30 @@ while bezi:
         star_distance = star[2]
         draw("$\\circle|" + str(star_distance*2), star[0] + x * star_distance + (sirka//2), star[1] + y * star_distance + (vyska//2))
     #lasers
+    lasers_rect = []
     for laser in lasers:
-            laser_x = laser[0] +x
-            laser_y = laser[1] +y
-            speed = laser[4]
-            draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, laser[5])
-            if menu == False:
-                laser[0] += math.cos(math.radians(laser[2])) * speed
-                laser[1] += math.sin(math.radians(laser[2])) * -speed
-                if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
-                    lasers.remove(laser)
-                else:
-                    draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, laser[5])
+        laser_x = laser[0] +x
+        laser_y = laser[1] +y
+        speed = laser[4]
+        if menu == False:
+            laser[0] += math.cos(math.radians(laser[2])) * speed
+            laser[1] += math.sin(math.radians(laser[2])) * -speed
+            if laser_x < -1000 or laser_x > sirka + 1000 or laser_y < -1000 or laser_y > vyska + 1000:
+                lasery_k_vymazani.append(laser)
+            else:
+                draw("$\\rect|5|20", laser_x, laser_y, laser[2] + 90, laser[5])
+                lasers_rect.append(pygame.transform.rotate(pygame.Surface((200, 20)), laser[2]).get_rect(center=(laser_x, laser_y)))
     #enemies
     if enemy_spawn_time < aktualni_cas and menu == False:
-        pass
-
-
+        direction = random.randint(0,360)
+        enx, eny = math.sin(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2), math.cos(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2)
+        enemies.append([enx - x + sirka//2, eny - y + vyska//2 , 0, 5])
+        enemy_spawn_time = aktualni_cas + 10000
     for enemy in enemies:
+        entexture = "sawer"
         direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
         enemy_uhel = enemy[2]
+        enemyrect = pygame.transform.rotate(textures["sawer"], enemy_uhel).get_rect(center=(enemy[0] + x, enemy[1] + y))
         if menu == False:
             enemy_uhel += 1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 > 10 else (-1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 < -10 else 0)
         enemy[2] = enemy_uhel
@@ -447,23 +451,26 @@ while bezi:
             trayindex += 1
             if trayindex >= os.listdir(assets("enemies/sawer/trays")).__len__():
                 trayindex = 0
-
         if vzdalenost <= 500 and menu == False:
             if colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal")>0 and health >= 0:
                 health -= 0.5 * colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal") / 100
-        for laser in lasers:
-            if math.hypot(enemy[0] -laser[0], enemy[1] - laser[1]) < 50:
-                enemy[3] -= laser[3]
-                if laser not in lasery_k_vymazani:
-                    lasery_k_vymazani.append(laser)
-                if enemy not in enemys_k_vymazani and enemy[3] <= 0:
-                    enemys_k_vymazani.append(enemy)
-        for laser in lasery_k_vymazani:
-            if laser in lasers:
-                lasers.remove(laser)
-        for enemy in enemys_k_vymazani:
-            if enemy in enemies:
-                enemies.remove(enemy)
+        colide_lasers = enemyrect.collidelistall(lasers_rect)
+        uhlopricka = math.sqrt(textures[entexture].get_width() ** 2 + textures[entexture].get_height() ** 2)
+        for index, laser in enumerate(lasers):
+            if index in colide_lasers and math.hypot(abs(enemy[0] - laser[0]), abs(enemy[1] - laser[1])) < (uhlopricka / 2):
+                if colison("sawer", enemy[0], enemy[1], enemy_uhel, laser[0], laser[1]):
+                    enemy[3] -= laser[3]
+                    if laser not in lasery_k_vymazani:
+                        lasery_k_vymazani.append(laser)
+                    if enemy not in enemys_k_vymazani and enemy[3] <= 0:
+                        enemys_k_vymazani.append(enemy)
+
+    for laser in lasery_k_vymazani:
+        if laser in lasers:
+            lasers.remove(laser)
+    for enemy in enemys_k_vymazani:
+        if enemy in enemies:
+            enemies.remove(enemy)
 
     #menu actions
     else:
