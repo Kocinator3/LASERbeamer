@@ -31,7 +31,7 @@ def assets(jmeno_souboru):
     # 3. Mód neexistuje, použijeme originální obrázky zabalené uvnitř .exe
     return os.path.join(sys._MEIPASS, "assets", jmeno_souboru)
 def refresh_screen(pygame_resize : str = "RESIZABLE"):
-    global sirka, vyska, okno, textures, big_big_font, big_font, retro_font, small_font, textura, overlay, fyzicke_okno, player_width, player_height, info_monitoru
+    global sirka, vyska, okno, textures, big_big_font, big_font, retro_font, small_font, textura, overlay, fyzicke_okno, player_width, player_height, info_monitoru, laser_width, laser_height
     info_monitoru = pygame.display.Info()
 
     okno = pygame.display.set_mode((sirka, vyska), getattr(pygame, pygame_resize))
@@ -59,31 +59,48 @@ def refresh_screen(pygame_resize : str = "RESIZABLE"):
     fyzicke_okno = Window.from_display_module()
 
     # Používáme dopředná lomítka pro bezproblémový běh na Windows i Linuxu
-
+    not_png_file = 0
     for i, name in enumerate(os.listdir(assets("enemies/sawer/saws"))):
-        relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
-        textures["saws" + str(i)] = pygame.transform.scale_by(
-            pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
-        )
-
+        if name.endswith(".png"):
+            relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
+            textures["saws" + str(i - not_png_file)] = pygame.transform.scale_by(
+                pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+            )
+        else:
+            not_png_file += 1
+            print(f"File {name} is not a PNG file and will be skipped.")
+    not_png_file = 0
     for i, name in enumerate(os.listdir(assets("healthbar/lasers"))):
-        relativni_cesta_souboru = os.path.join("healthbar/lasers", name)
-        textures[name] = pygame.transform.scale_by(
-            pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
-        )
-
+        if name.endswith(".png"):
+            relativni_cesta_souboru = os.path.join("healthbar/lasers", name)
+            textures[name] = pygame.transform.scale_by(
+                pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+            )
+        else:
+            not_png_file += 1
+            print(f"File \"{name}\" is not a PNG file and will be skipped.")
+    not_png_file = 0
     for i, name in enumerate(os.listdir(assets("enemies/sawer/trays"))):
-        relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
-        textures["trays" + str(i)] = pygame.transform.scale_by(
-            pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
-        )
+        if name.endswith(".png"):
+            relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
+            textures["trays" + str(i - not_png_file)] = pygame.transform.scale_by(
+                pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+            )
+        else:
+            not_png_file += 1
+            print(f"File \"{name}\" is not a PNG file and will be skipped.")
+
+    laser_width = textures["red_laser_0.png"].get_width()
+    laser_height = textures["red_laser_0.png"].get_height()
     textura = "normal"
 
 refresh_screen()
 
 objects = []
+debug = False
 
 def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255), vrstva=0):
+    global objects, debug
     if textura == None:
         #renderování textur
         for i in range(len(objects)):
@@ -94,6 +111,11 @@ def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255), vrstva=0):
                     rotated_player = pygame.transform.rotate(textures[object[0][2:]], object[3])
                     new_player = rotated_player.get_rect(center=(object[1], object[2]))
                     okno.blit(rotated_player, new_player)
+                    if debug:
+                        pygame.draw.rect(okno, (0, 255, 0), new_player, 2)
+                        highlight = pygame.Surface((new_player.width, new_player.height), pygame.SRCALPHA)
+                        highlight.fill((0, 255, 0, 10))
+                        okno.blit(highlight, new_player.topleft)
                 elif object[0].startswith("$\\"):
                     parts = object[0][2:].split("|")
                     if parts[0] == "circle":
@@ -143,39 +165,42 @@ current_time = 1
 def cooldown(cooldown_time_parameter = None, last_used_time_parameter = None):
     global cooldown_time, last_used_time, cooldownpar, ratio
     if cooldown_time_parameter == None and last_used_time_parameter == None:
-        aktualni_cas = pygame.time.get_ticks()
-        if menu == False:
-            if cooldown_time <= 0:
-                ratio = 1
-            else:
-                ratio = (aktualni_cas - last_used_time) / (cooldown_time)
-        else: pass
+        if cooldown_time <= 0:
+            pass
+        else:
+            aktualni_cas = pygame.time.get_ticks()
+            if menu == False:
+                if cooldown_time <= 0:
+                    ratio = 1
+                else:
+                    ratio = (aktualni_cas - last_used_time) / (cooldown_time)
+            else: pass
+                    
+            num_rects = int(ratio * 10)
+            if num_rects > 10:
+                num_rects = 10
+            elif num_rects < 0:
+                num_rects = 0
                 
-        num_rects = int(ratio * 10)
-        if num_rects > 10:
-            num_rects = 10
-        elif num_rects < 0:
-            num_rects = 0
+            mezera = 15
+            celkova_dostupna_sirka = rect_health_icon.left - vyska // 10 # 10px zleva a 10px k obrazku
+            sirka_obdelniku = max((celkova_dostupna_sirka - (9 * mezera)) / 10, 1)
+            green_rect = pygame.Surface((sirka_obdelniku, rect_health_icon.height), pygame.SRCALPHA)
+            dark_green_rect = pygame.Surface((sirka_obdelniku, rect_health_icon.height), pygame.SRCALPHA)
+            pygame.draw.rect(green_rect, (0, 255, 0, 125), (0, 0, sirka_obdelniku, rect_health_icon.height))
+            pygame.draw.rect(dark_green_rect, (0, 100, 0, 100), (0, 0, sirka_obdelniku, rect_health_icon.height))
             
-        mezera = 15
-        celkova_dostupna_sirka = rect_health_icon.left - vyska // 10 # 10px zleva a 10px k obrazku
-        sirka_obdelniku = max((celkova_dostupna_sirka - (9 * mezera)) / 10, 1)
-        green_rect = pygame.Surface((sirka_obdelniku, rect_health_icon.height), pygame.SRCALPHA)
-        dark_green_rect = pygame.Surface((sirka_obdelniku, rect_health_icon.height), pygame.SRCALPHA)
-        pygame.draw.rect(green_rect, (0, 255, 0, 125), (0, 0, sirka_obdelniku, rect_health_icon.height))
-        pygame.draw.rect(dark_green_rect, (0, 100, 0, 100), (0, 0, sirka_obdelniku, rect_health_icon.height))
-        
-        # 1. Nakreslení "pozadí" - všech 10 tmavých čtverečků
-        for i in range(10):
-            x_pozice = vyska // 20  + i * (sirka_obdelniku + mezera)
-            okno.blit(dark_green_rect, (x_pozice, rect_health_icon.top))
-            
-        # 2. Nakreslení "aktivních" čtverečků na vrch - překryjí ty tmavé
-        for i in range(num_rects):
-            x_pozice = vyska // 20  + i * (sirka_obdelniku + mezera)
-            okno.blit(green_rect, (x_pozice, rect_health_icon.top))
-            if i == num_rects - 1:
-                cooldownpar = False
+            # 1. Nakreslení "pozadí" - všech 10 tmavých čtverečků
+            for i in range(10):
+                x_pozice = vyska // 20  + i * (sirka_obdelniku + mezera)
+                okno.blit(dark_green_rect, (x_pozice, rect_health_icon.top))
+                
+            # 2. Nakreslení "aktivních" čtverečků na vrch - překryjí ty tmavé
+            for i in range(num_rects):
+                x_pozice = vyska // 20  + i * (sirka_obdelniku + mezera)
+                okno.blit(green_rect, (x_pozice, rect_health_icon.top))
+                if i == num_rects - 1:
+                    cooldownpar = False
     else:
         cooldownpar = True
         cooldown_time = cooldown_time_parameter
@@ -188,7 +213,7 @@ for _ in range(200):
 
 lasers = []
 lasery_k_vymazani = []
-enemys_k_vymazani = []
+enemies_k_vymazani = []
 enemies = []
 was_menu = False 
 bezi = True
@@ -207,7 +232,8 @@ menu_time = 0
 enemy_spawn_time = 0
 start_laser_time = 0
 hold_laser_index = 0
-range_hold_space = 45
+range_hold_space = 30
+locked_position = False
 hold_e_action = False
 e_cooldown = 0
 sawindex = 0
@@ -265,6 +291,8 @@ while bezi:
             sirka, vyska = event.size
             refresh_screen()
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F3:
+                debug = not debug
             if event.key == pygame.K_F11:
                 if okno.get_width() == pygame.display.get_desktop_sizes()[monitor_index][0] and okno.get_height() == pygame.display.get_desktop_sizes()[monitor_index][1]:
                     sirka, vyska = bf_sirka, bf_vyska
@@ -337,16 +365,12 @@ while bezi:
     for i in range(11):
         objects.append([])
     
-
-    stred_x = sirka // 2
-    stred_y = vyska // 2
-    spicka_x = stred_x + math.cos(math.radians(uhel_lode)) * player_width / 2
-    spicka_y = stred_y - math.sin(math.radians(uhel_lode)) * player_width / 2
-    
-    mid_right = (spicka_x, spicka_y)
-    
     if menu == False:
-        #player
+    #player
+        #localization of potentional laser
+        laser_hypotenuse = ((player_height / 2) + (laser_height / 2))*4.5
+        laser_x = (math.cos(math.radians(uhel_lode)) * laser_hypotenuse) + (sirka // 2 )
+        laser_y = (0 - math.sin(math.radians(uhel_lode)) * laser_hypotenuse) + (vyska // 2 )
         #keys
         if pygame.key.get_pressed()[pygame.K_p]:
             cooldown(5000, aktualni_cas)
@@ -354,66 +378,73 @@ while bezi:
             space_pressed = True
             hold_laser = False
             start_laser_time = aktualni_cas
-            start_direction = uhel_lode
-        if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and aktualni_cas - start_laser_time > 500 and aktualni_cas > last_used_time + cooldown_time:
-            start_direction = uhel_lode
-            cooldown(1500, aktualni_cas)
+        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == True and aktualni_cas - start_laser_time > 200 and aktualni_cas > last_used_time + cooldown_time:
+            locked_position = True
+            textura = "normal"
+        if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and aktualni_cas - start_laser_time > 1000 and aktualni_cas > last_used_time + cooldown_time:
+            cooldown(2000, aktualni_cas)
             hold_laser = True
             while hold_laser_index < range_hold_space:
-                uhel_lode = start_direction - range_hold_space/2 + hold_laser_index
+                axe_shift = 0 - range_hold_space/2 + hold_laser_index
                 hold_laser_index += 10
-                lasers.append([spicka_x, spicka_y, uhel_lode-90, 0.65, 25, 0, aktualni_cas])
-                uhel_lode = start_direction
+                axe_shift_hypotense = 2 * (math.sin(math.radians(axe_shift/2)) * (laser_width / 2))
+                relative_axe_shift = (180 + axe_shift) / 2 + uhel_lode
+                x_shift = math.cos(math.radians(relative_axe_shift)) * axe_shift_hypotense
+                y_shift = math.sin(math.radians(relative_axe_shift)) * axe_shift_hypotense
+                relative_laser_x, relative_laser_y, relative_laser_angle = laser_x + x_shift, laser_y - y_shift, uhel_lode - 90 + axe_shift
+                lasers.append([relative_laser_x, relative_laser_y, relative_laser_angle, 2, "blue", 0, aktualni_cas, relative_laser_angle])
         if pygame.key.get_pressed()[pygame.K_SPACE] == False:
             if aktualni_cas - start_laser_time < 150 and space_pressed == True and hold_laser == False:
                 cooldown(100, aktualni_cas)
-                lasers.append([spicka_x, spicka_y, uhel_lode-90, 1, 25, 0, aktualni_cas])
+                lasers.append([laser_x, laser_y, uhel_lode-90, 2, "red", 0, aktualni_cas, uhel_lode-90])
+            if aktualni_cas - start_laser_time >= 1000:
+                locked_position = False
             space_pressed = False
             hold_laser_index = 0
         if not pygame.key.get_pressed()[pygame.K_SPACE] :
             space_pressed = False
-        if pygame.key.get_pressed()[pygame.K_a]:
-            uhel_lode += 4
-        if pygame.key.get_pressed()[pygame.K_d]:
-            uhel_lode -= 4
-        if pygame.key.get_pressed()[pygame.K_w] and pygame.key.get_pressed()[pygame.K_b] and last_turbo_time + 1000 < aktualni_cas:
-            acc += 250
-            last_turbo_time = aktualni_cas
-        if pygame.key.get_pressed()[pygame.K_w]:
-            acc += 0.1
-            if pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                acc += 0.2
+        if locked_position == False:
             if pygame.key.get_pressed()[pygame.K_a]:
-                textura = "right"
-                if aktualni_cas - last_animation_time1 > 100:
-                    textura = "forward" + str(random.randint(1, 5))
-                accrotation += 1
+                uhel_lode += 4
             if pygame.key.get_pressed()[pygame.K_d]:
-                textura = "left"
-                if aktualni_cas - last_animation_time1 > 100:
-                    textura = "forward" + str(random.randint(1, 5))
-                accrotation -= 1
-            elif aktualni_cas - last_animation_time1 > 50:
-                if textura == "forward1":
-                    textura = "forward2"
-                elif textura == "forward2":
-                    textura = "forward3"
-                elif textura == "forward3":
-                    textura = "forward4"
-                elif textura == "forward4":
-                    textura = "forward5"
-                elif textura == "forward5":
-                    textura = "forward1"
-                else: textura = "forward" + str(random.randint(1, 5))
-                last_animation_time1 = aktualni_cas
-        else: textura = "normal"
+                uhel_lode -= 4
+            if pygame.key.get_pressed()[pygame.K_w] and pygame.key.get_pressed()[pygame.K_b] and last_turbo_time + 1000 < aktualni_cas:
+                acc += 250
+                last_turbo_time = aktualni_cas
+            if pygame.key.get_pressed()[pygame.K_w]:
+                acc += 0.1
+                if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                    acc += 0.2
+                if pygame.key.get_pressed()[pygame.K_a]:
+                    textura = "right"
+                    if aktualni_cas - last_animation_time1 > 100:
+                        textura = "forward" + str(random.randint(1, 5))
+                    accrotation += 1
+                if pygame.key.get_pressed()[pygame.K_d]:
+                    textura = "left"
+                    if aktualni_cas - last_animation_time1 > 100:
+                        textura = "forward" + str(random.randint(1, 5))
+                    accrotation -= 1
+                elif aktualni_cas - last_animation_time1 > 50:
+                    if textura == "forward1":
+                        textura = "forward2"
+                    elif textura == "forward2":
+                        textura = "forward3"
+                    elif textura == "forward3":
+                        textura = "forward4"
+                    elif textura == "forward4":
+                        textura = "forward5"
+                    elif textura == "forward5":
+                        textura = "forward1"
+                    else: textura = "forward" + str(random.randint(1, 5))
+                    last_animation_time1 = aktualni_cas
+            else: textura = "normal"
 
         uhel_lode += accrotation/5
         velocity_x = math.cos(math.radians(uhel_lode)) * acc
         velocity_y = math.sin(math.radians(uhel_lode)) * acc
-        accrotation *= 0.9
-        acc *= 0.9
-    rel_x, rel_y = mid_right
+        accrotation *= 0.93
+        acc *= 0.93
     draw("&\\" + textura, sirka//2, vyska//2, uhel_lode, vrstva = 5)
 
     
@@ -425,23 +456,28 @@ while bezi:
 #lasers
     lasers_rect = []
     for laser in lasers:
-        laser[0], laser[1] = spicka_x, spicka_y
+
         if laser[6] + 100 < aktualni_cas:
             laser[5] += 1
-        draw("&\\red_laser_" + str(laser[5]) + ".png", laser[0], laser[1], laser[2] + 90, vrstva=3)
-        
-        # ZDE JE PŘIDÁNO + 90 k úhlu laser[2]
+        draw("&\\" + laser[4] + "_laser_" + str(laser[5]) + ".png", laser[0], laser[1], laser[2] + 90, vrstva=3)
+
+        if laser[4] == "blue":
+            locked_position = True
+        else:
+            locked_position = False
+
         lasers_rect.append(pygame.transform.rotate(pygame.Surface((200, 20)), laser[2] + 90).get_rect(center=(laser[0], laser[1])))
         if laser[5] >= 5:
             if laser not in lasery_k_vymazani:
                 lasery_k_vymazani.append(laser)
+                locked_position = False
 
     #enemies
     if enemy_spawn_time < aktualni_cas and menu == False and enemies.__len__() < 10:
         direction = random.randint(0,360)
         enx, eny = math.sin(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2), math.cos(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2)
         enemies.append([enx - x + sirka//2, eny - y + vyska//2 , 0, 5])
-        enemy_spawn_time = aktualni_cas + 10000
+        enemy_spawn_time = aktualni_cas + 5000
     for enemy in enemies:
         entexture = "sawer"
         direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
@@ -476,18 +512,21 @@ while bezi:
         colide_lasers = enemyrect.collidelistall(lasers_rect)
         uhlopricka = math.sqrt(textures[entexture].get_width() ** 2 + textures[entexture].get_height() ** 2)
         for index, laser in enumerate(lasers):
-            if index in colide_lasers: 
-                if colison("sawer", enemy[0] + x, enemy[1] + y, enemy_uhel, laser[0], laser[1], laser[2] + 90, laser_texture="red_laser_" + str(laser[5]) + ".png") > 0:
-                    enemy[3] -= laser[3]
-                    if laser not in lasery_k_vymazani:
-                        lasery_k_vymazani.append(laser)
-                    if enemy not in enemys_k_vymazani and enemy[3] <= 0:
-                        enemys_k_vymazani.append(enemy)
+            if index in colide_lasers:
+                print("laser " + str(index) + " colide")
+                if enemy[3] > 0: 
+                    if colison("sawer", enemy[0] + x, enemy[1] + y, enemy_uhel, laser[0], laser[1], laser[2] + 90, laser_texture="red_laser_" + str(laser[5]) + ".png") > 0:
+                        enemy[3] -= laser[3]
+                        print("enemy health: " + str(enemy[3]))
+                        if laser not in lasery_k_vymazani:
+                            lasery_k_vymazani.append(laser)
+                        if enemy not in enemies_k_vymazani and enemy[3] <= 0:
+                            enemies_k_vymazani.append(enemy)
 
     for laser in lasery_k_vymazani:
         if laser in lasers:
             lasers.remove(laser)
-    for enemy in enemys_k_vymazani:
+    for enemy in enemies_k_vymazani:
         if enemy in enemies:
             enemies.remove(enemy)
 
@@ -609,6 +648,6 @@ while bezi:
             okno.blit(text_no, no_rect)
     #omezovac snímků za sekundu
     pygame.display.flip()
-    hodiny.tick(60)
+    hodiny.tick(50)
 pygame.quit()
 sys.exit()
