@@ -64,7 +64,7 @@ def refresh_screen(pygame_resize : str = "RESIZABLE"):
         if name.endswith(".png"):
             relativni_cesta_souboru = os.path.join("enemies/sawer/saws", name)
             textures["saws" + str(i - not_png_file)] = pygame.transform.scale_by(
-                pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
+                pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 14.9*sirka/2560
             )
         else:
             not_png_file += 1
@@ -80,10 +80,10 @@ def refresh_screen(pygame_resize : str = "RESIZABLE"):
             not_png_file += 1
             print(f"File \"{name}\" is not a PNG file and will be skipped.")
     not_png_file = 0
-    for i, name in enumerate(os.listdir(assets("enemies/sawer/trays"))):
+    for i, name in enumerate(os.listdir(assets("enemies/sawer/trails"))):
         if name.endswith(".png"):
-            relativni_cesta_souboru = os.path.join("enemies/sawer/trays", name)
-            textures["trays" + str(i - not_png_file)] = pygame.transform.scale_by(
+            relativni_cesta_souboru = os.path.join("enemies/sawer/trails", name)
+            textures["trails" + str(i - not_png_file)] = pygame.transform.scale_by(
                 pygame.image.load(assets(relativni_cesta_souboru)).convert_alpha(), 15*sirka/2560
             )
         else:
@@ -130,7 +130,7 @@ def draw(textura=None, x=0, y=0, uhel_lode=0, barva=(255, 255, 255), vrstva=0):
     else: 
         objects[vrstva].append((textura, x, y, uhel_lode, barva))
 
-def colison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle=0, laser_length=1, laser_width=1, laser_color=(255, 0, 0), laser_texture=None):
+def collison(enemy_texture, enemy_x, enemy_y, enemy_angel, laser_x, laser_y, laser_angle=0, laser_length=1, laser_width=1, laser_color=(255, 0, 0), laser_texture=None):
         enemy_img = pygame.transform.rotate(textures[enemy_texture], enemy_angel)
         enemy_mask = pygame.mask.from_surface(enemy_img)
         if laser_texture == None:
@@ -168,12 +168,12 @@ def cooldown(cooldown_time_parameter = None, last_used_time_parameter = None):
         if cooldown_time <= 0:
             pass
         else:
-            aktualni_cas = pygame.time.get_ticks()
+            actual_time = pygame.time.get_ticks()
             if menu == False:
                 if cooldown_time <= 0:
                     ratio = 1
                 else:
-                    ratio = (aktualni_cas - last_used_time) / (cooldown_time)
+                    ratio = (actual_time - last_used_time) / (cooldown_time)
             else: pass
                     
             num_rects = int(ratio * 10)
@@ -206,14 +206,218 @@ def cooldown(cooldown_time_parameter = None, last_used_time_parameter = None):
         cooldown_time = cooldown_time_parameter
         last_used_time = last_used_time_parameter
 
+max_health = 50
+health = max_health
+
+#classes
+
+class Object:
+
+    objects = []
+
+    def __init__(self, coordinates, angle, texture):
+        self.coordinates = pygame.math.Vector2(coordinates)
+        self.angle = angle
+        self.angle = self.angle % 360
+        self.texture = texture
+        self.last_angle = None
+        self.rotated_object = None
+        self.mask = None
+        Object.objects.append(self)
+    
+    def draw(self, display):
+        global x, y
+        self.display_coordinates = self.coordinates + pygame.math.Vector2(x, y)
+        self.rotated_object = pygame.transform.rotate(textures[self.texture], self.angle)
+        if self.last_angle != int(self.angle):
+            self.rotated_object = pygame.transform.rotate(textures[self.texture], self.angle)
+            self.mask = None
+            self.last_angle = self.angle
+        self.object_rect = self.rotated_object.get_rect(center=(self.display_coordinates))
+        display.blit(self.rotated_object, self.object_rect)
+        if debug:
+            pygame.draw.rect(display, (0, 255, 0), self.object_rect, 2)
+            highlight = pygame.Surface((self.object_rect.width, self.object_rect.height), pygame.SRCALPHA)
+            highlight.fill((0, 255, 0, 10))
+            display.blit(highlight, self.object_rect.topleft)
+
+
+class Enemy(Object):
+
+    enemies = []
+
+    def __init__(self, coordinates, angle, texture, health, speed, turning_speed):
+        super().__init__(coordinates, angle, texture)
+        self.health = health
+        self.speed = speed
+        self.turning_speed = turning_speed
+        Enemy.enemies.append(self)
+    
+    def move(self, position):
+        self.target_vector = pygame.math.Vector2(position)
+        self.target_direction = self.target_vector - self.coordinates
+        target_angle = math.degrees(math.atan2(self.target_direction.y, self.target_direction.x))
+        actual_angle = -self.angle
+        diff = (target_angle - actual_angle + 180) % 360 - 180
+        # turning clockwise or non-clockwise?
+        if diff > 0:
+            self.angle -= min(self.turning_speed, diff)
+        elif diff < 0:
+            self.angle += min(self.turning_speed, abs(diff))
+        
+        self.angle %= 360
+        
+        # movement
+        new_direction = pygame.math.Vector2(1, 0).rotate(-self.angle)
+        self.coordinates += new_direction * self.speed
+
+        self.display_coordinates = self.coordinates + pygame.math.Vector2(x, y)
+        self.rotated_object = pygame.transform.rotate(textures[self.texture], self.angle)
+        new_object = self.rotated_object.get_rect(center=(self.display_coordinates))
+        self.object_rect = new_object
+    def collisions(self):
+        for laser in lasers:
+            if hasattr(laser, "object_rect") and hasattr(self, "object_rect") and laser.frame < 6:
+                if self.object_rect.colliderect(laser.object_rect):
+                    if getattr(laser, 'mask', None) is None:
+                        laser.mask = pygame.mask.from_surface(laser.rotated_object)
+                    if getattr(self, 'mask', None) is None:
+                        self.mask = pygame.mask.from_surface(self.rotated_object)                    
+                    offset_x = laser.object_rect.left - self.object_rect.left
+                    offset_y = laser.object_rect.top - self.object_rect.top
+                    overlap = self.mask.overlap_area(laser.mask, (offset_x, offset_y))
+                    if overlap > 0 and self.health > 0: 
+                        self.health -= laser.damage
+                        if laser not in lasers_for_ereasing:
+                            lasers_for_ereasing.append(laser)
+                        if self not in enemies_for_ereasing and self.health <= 0:
+                            enemies_for_ereasing.append(self)
+    @classmethod
+    def draw_all(cls, display):
+        for enemy in cls.enemies:
+            enemy.draw(display)
+    @classmethod
+    def move_all(cls, target_x, target_y):
+        for enemy in cls.enemies:
+            enemy.move(target_x, target_y)
+
+class Sawer(Enemy):
+    sawers = []
+    shared_saw_mask = None
+    def __init__(self, coordinates, angle):
+        super().__init__(coordinates, angle, "sawer", 5, 1, 4)
+        self.saw_count = os.listdir(assets("enemies/sawer/saws")).__len__()
+        self.trail_count = os.listdir(assets("enemies/sawer/trails")).__len__()
+        self.trailcounter = 0
+        self.sawcounter = 0
+        self.sawindex = 0
+        self.trailindex = 0
+        self.saw_texture = "saw0"
+        self.trail_texture = "trail0"
+        self.rotated_saw_vector = pygame.math.Vector2(0,0)
+        if Sawer.shared_saw_mask is None:
+            Sawer.shared_saw_mask = pygame.mask.from_surface(textures["saws0"])
+        Sawer.sawers.append(self)
+    def draw(self, display):
+        global health, x, y, textures
+        self.display_coordinates = self.coordinates + pygame.math.Vector2(x, y)
+        self.saw_offset = pygame.math.Vector2(
+            (textures["sawer"].get_width() // 2) - (textures["saws0"].get_width() // 2), 
+            0
+        )
+
+        #animating saws and trails
+
+        if self.sawcounter < actual_time and menu == False:
+            self.sawcounter = actual_time + 100
+            self.sawindex += 1
+        if self.sawindex >= self.saw_count:
+            self.sawindex = 0
+        self.saw_texture = f"saws{self.sawindex}"
+
+        if self.trailcounter < actual_time and menu == False:
+            self.trailcounter = actual_time + 100
+            self.trailindex += 1
+            if self.trailindex >= self.trail_count:
+                self.trailindex = 0
+        self.trail_texture = f"trails{self.trailindex}"
+
+        #saws
+        rotated_saw_offset = self.saw_offset.rotate(-self.angle)
+        self.rotated_saw_vector = rotated_saw_offset + self.display_coordinates
+
+        self.rotated_saw = pygame.transform.rotate(textures[self.saw_texture], self.angle)
+        self.saw_rect = self.rotated_saw.get_rect(center=(self.rotated_saw_vector))
+        display.blit(self.rotated_saw, self.saw_rect)
+          
+        if debug:
+            pygame.draw.rect(display, (255, 0, 0), self.saw_rect, 2)
+            highlight = pygame.Surface((self.saw_rect.width, self.saw_rect.height), pygame.SRCALPHA)
+            highlight.fill((255, 0, 0, 10))
+            display.blit(highlight, self.saw_rect.topleft)
+                
+        #trails
+        self.rotated_object = pygame.transform.rotate(textures[self.trail_texture], self.angle)
+        new_object = self.rotated_object.get_rect(center=(self.display_coordinates))
+        display.blit(self.rotated_object, new_object)
+        if debug:
+            pygame.draw.rect(display, (0, 0, 255), new_object, 2)
+            highlight = pygame.Surface((new_object.width, new_object.height), pygame.SRCALPHA)
+            highlight.fill((0, 0, 255, 10))
+            display.blit(highlight, new_object.topleft)
+
+        super().draw(display)
+    def collisions(self):
+        global health
+        if self.object_rect.colliderect(pygame.transform.rotate(textures["normal"], uhel_lode).get_rect(center=(sirka//2, vyska//2))) and menu == False:
+            collison_percentage = collison("saws0", self.rotated_saw_vector.x, self.rotated_saw_vector.y, self.angle, sirka//2, vyska//2, uhel_lode, laser_texture="normal")            
+            if collison_percentage > 0 and health >= 0:
+                health -= 0.5 * collison_percentage / 100
+        super().collisions()
+
+class Laser(Object):
+    def __init__(self, coordinates, angle, name, damage):
+        global actual_time, velocity_x, velocity_y
+        super().__init__(coordinates, angle, f"{name}_laser_0.png")
+        self.name = name
+        self.damage = damage
+        self.frame = 0
+        self.cooldown = 100
+        self.start = actual_time
+    def draw(self, display):
+        global actual_time, menu
+        if menu == False:
+            if actual_time >= self.start + self.cooldown:
+                self.frame += 1
+                self.start = actual_time
+                if self.frame > 5:
+                    if self not in lasers_for_ereasing:
+                        lasers_for_ereasing.append(self)
+                else:
+                    self.texture = f"{self.name}_laser_{self.frame}.png"
+        super().draw(display)
+    def move(self, velocity, delta_angle, ship_center):
+        self.coordinates += velocity
+        offset = self.coordinates - ship_center
+        offset = offset.rotate(-delta_angle)
+        self.coordinates = ship_center + offset
+        self.angle += delta_angle
+class RedLaser(Laser):
+    def __init__(self, coordinates, angle):
+        super().__init__(coordinates, angle, "red", 2)
+
+class BlueLaser(Laser):
+    def __init__(self, coordinates, angle):
+        super().__init__(coordinates, angle, "blue", 3)
+
 #random stars
 stars = []
 for _ in range(200):
     stars.append((random.randint(-3000, 3000), random.randint(-3000, 3000), random.randint(5000, 10000)/10000))
 
 lasers = []
-lasery_k_vymazani = []
-enemies_k_vymazani = []
+lasers_for_ereasing = []
+enemies_for_ereasing = []
 enemies = []
 was_menu = False 
 bezi = True
@@ -224,10 +428,9 @@ game_over = False
 sure = False
 cooldownpar = False
 ratio = 0
-max_health = 50
-health = max_health
 space_pressed = False
 sawcounter = 0
+trailcounter = 0
 menu_time = 0
 enemy_spawn_time = 0
 start_laser_time = 0
@@ -237,8 +440,6 @@ locked_position = False
 hold_e_action = False
 e_cooldown = 0
 sawindex = 0
-traycounter = 0
-trayindex = 0
 hodiny = pygame.time.Clock()
 menu = True
 escpressed = False
@@ -267,20 +468,20 @@ yes_rect = pygame.Rect(0, 0, 0, 0)
 no_rect = pygame.Rect(0, 0, 0, 0)
 
 while bezi:
-    aktualni_cas = pygame.time.get_ticks()
+    actual_time = pygame.time.get_ticks()
 
     if menu == True and was_menu == False:
-        open_menu_time = aktualni_cas
+        open_menu_time = actual_time
         was_menu = True
     if menu == False and was_menu == True:
-        time_in_menu = aktualni_cas - open_menu_time
+        time_in_menu = actual_time - open_menu_time
         last_used_time += time_in_menu
         last_turbo_time += time_in_menu
         last_animation_time1 += time_in_menu
         start_laser_time += time_in_menu
         enemy_spawn_time += time_in_menu
         sawcounter += time_in_menu
-        traycounter += time_in_menu
+        trailcounter += time_in_menu
         was_menu = False
     
     #when game is running, check for events
@@ -367,22 +568,23 @@ while bezi:
     
     if menu == False:
     #player
+        old_direction = uhel_lode
         #localization of potentional laser
         laser_hypotenuse = ((player_height / 2) + (laser_height / 2))*4.5
-        laser_x = (math.cos(math.radians(uhel_lode)) * laser_hypotenuse) + (sirka // 2 )
-        laser_y = (0 - math.sin(math.radians(uhel_lode)) * laser_hypotenuse) + (vyska // 2 )
+        laser_x = (math.cos(math.radians(uhel_lode)) * laser_hypotenuse) + (sirka // 2 - x)
+        laser_y = (0 - math.sin(math.radians(uhel_lode)) * laser_hypotenuse) + (vyska // 2 - y)
         #keys
         if pygame.key.get_pressed()[pygame.K_p]:
-            cooldown(5000, aktualni_cas)
-        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == False and aktualni_cas > last_used_time + cooldown_time:
+            cooldown(5000, actual_time)
+        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == False and actual_time > last_used_time + cooldown_time:
             space_pressed = True
             hold_laser = False
-            start_laser_time = aktualni_cas
-        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == True and aktualni_cas - start_laser_time > 200 and aktualni_cas > last_used_time + cooldown_time:
-            locked_position = True
+            start_laser_time = actual_time
+        if pygame.key.get_pressed()[pygame.K_SPACE] and space_pressed == True and actual_time - start_laser_time > 200 and actual_time > last_used_time + cooldown_time:
+            locked_position = False
             textura = "normal"
-        if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and aktualni_cas - start_laser_time > 1000 and aktualni_cas > last_used_time + cooldown_time:
-            cooldown(2000, aktualni_cas)
+        if pygame.key.get_pressed()[pygame.K_SPACE] == True and space_pressed == True and hold_laser_index < range_hold_space and actual_time - start_laser_time > 1000 and actual_time > last_used_time + cooldown_time:
+            cooldown(2000, actual_time)
             hold_laser = True
             while hold_laser_index < range_hold_space:
                 axe_shift = 0 - range_hold_space/2 + hold_laser_index
@@ -391,13 +593,13 @@ while bezi:
                 relative_axe_shift = (180 + axe_shift) / 2 + uhel_lode
                 x_shift = math.cos(math.radians(relative_axe_shift)) * axe_shift_hypotense
                 y_shift = math.sin(math.radians(relative_axe_shift)) * axe_shift_hypotense
-                relative_laser_x, relative_laser_y, relative_laser_angle = laser_x + x_shift, laser_y - y_shift, uhel_lode - 90 + axe_shift
-                lasers.append([relative_laser_x, relative_laser_y, relative_laser_angle, 2, "blue", 0, aktualni_cas, relative_laser_angle])
+                relative_laser_x, relative_laser_y, relative_laser_angle = laser_x + x_shift, laser_y - y_shift, uhel_lode + axe_shift
+                lasers.append(BlueLaser((relative_laser_x, relative_laser_y), relative_laser_angle))
         if pygame.key.get_pressed()[pygame.K_SPACE] == False:
-            if aktualni_cas - start_laser_time < 150 and space_pressed == True and hold_laser == False:
-                cooldown(100, aktualni_cas)
-                lasers.append([laser_x, laser_y, uhel_lode-90, 2, "red", 0, aktualni_cas, uhel_lode-90])
-            if aktualni_cas - start_laser_time >= 1000:
+            if actual_time - start_laser_time < 150 and space_pressed == True and hold_laser == False:
+                cooldown(100, actual_time)
+                lasers.append(RedLaser((laser_x, laser_y), uhel_lode))
+            if actual_time - start_laser_time >= 1000:
                 locked_position = False
             space_pressed = False
             hold_laser_index = 0
@@ -408,24 +610,24 @@ while bezi:
                 uhel_lode += 4
             if pygame.key.get_pressed()[pygame.K_d]:
                 uhel_lode -= 4
-            if pygame.key.get_pressed()[pygame.K_w] and pygame.key.get_pressed()[pygame.K_b] and last_turbo_time + 1000 < aktualni_cas:
+            if pygame.key.get_pressed()[pygame.K_w] and pygame.key.get_pressed()[pygame.K_b] and last_turbo_time + 1000 < actual_time:
                 acc += 250
-                last_turbo_time = aktualni_cas
+                last_turbo_time = actual_time
             if pygame.key.get_pressed()[pygame.K_w]:
                 acc += 0.1
                 if pygame.key.get_pressed()[pygame.K_LSHIFT]:
                     acc += 0.2
                 if pygame.key.get_pressed()[pygame.K_a]:
                     textura = "right"
-                    if aktualni_cas - last_animation_time1 > 100:
+                    if actual_time - last_animation_time1 > 100:
                         textura = "forward" + str(random.randint(1, 5))
                     accrotation += 1
                 if pygame.key.get_pressed()[pygame.K_d]:
                     textura = "left"
-                    if aktualni_cas - last_animation_time1 > 100:
+                    if actual_time - last_animation_time1 > 100:
                         textura = "forward" + str(random.randint(1, 5))
                     accrotation -= 1
-                elif aktualni_cas - last_animation_time1 > 50:
+                elif actual_time - last_animation_time1 > 50:
                     if textura == "forward1":
                         textura = "forward2"
                     elif textura == "forward2":
@@ -437,7 +639,7 @@ while bezi:
                     elif textura == "forward5":
                         textura = "forward1"
                     else: textura = "forward" + str(random.randint(1, 5))
-                    last_animation_time1 = aktualni_cas
+                    last_animation_time1 = actual_time
             else: textura = "normal"
 
         uhel_lode += accrotation/5
@@ -445,88 +647,33 @@ while bezi:
         velocity_y = math.sin(math.radians(uhel_lode)) * acc
         accrotation *= 0.93
         acc *= 0.93
+        ship_center = pygame.math.Vector2(sirka//2 - x, vyska//2 - y)
+        direction_shif = uhel_lode - old_direction
     draw("&\\" + textura, sirka//2, vyska//2, uhel_lode, vrstva = 5)
 
-    
     #stars
     for star in stars:
         star_distance = star[2]
         draw("$\\circle|" + str(star_distance*2), star[0] + x * star_distance + (sirka//2), star[1] + y * star_distance + (vyska//2))
-    #lasers
-#lasers
-    lasers_rect = []
-    for laser in lasers:
-
-        if laser[6] + 100 < aktualni_cas:
-            laser[5] += 1
-        draw("&\\" + laser[4] + "_laser_" + str(laser[5]) + ".png", laser[0], laser[1], laser[2] + 90, vrstva=3)
-
-        if laser[4] == "blue":
-            locked_position = True
-        else:
-            locked_position = False
-
-        lasers_rect.append(pygame.transform.rotate(pygame.Surface((200, 20)), laser[2] + 90).get_rect(center=(laser[0], laser[1])))
-        if laser[5] >= 5:
-            if laser not in lasery_k_vymazani:
-                lasery_k_vymazani.append(laser)
-                locked_position = False
 
     #enemies
-    if enemy_spawn_time < aktualni_cas and menu == False and enemies.__len__() < 10:
+    if enemy_spawn_time < actual_time and menu == False and enemies.__len__() < 10:
         direction = random.randint(0,360)
-        enx, eny = math.sin(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2), math.cos(direction) * (math.sqrt(sirka ** 2 + vyska ** 2) / 2)
-        enemies.append([enx - x + sirka//2, eny - y + vyska//2 , 0, 5])
-        enemy_spawn_time = aktualni_cas + 5000
-    for enemy in enemies:
-        entexture = "sawer"
-        direction = math.atan2(vyska // 2 - (enemy[1] +y), sirka // 2 - (enemy[0] +x))
-        enemy_uhel = enemy[2]
-        enemyrect = pygame.transform.rotate(textures["sawer"], enemy_uhel).get_rect(center=(enemy[0] + x, enemy[1] + y))
-        if menu == False:
-            enemy_uhel += 1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 > 10 else (-1 if ((-math.degrees(direction) - enemy_uhel) + 180) % 360 - 180 < -10 else 0)
-        enemy[2] = enemy_uhel
-        vzdalenost = math.hypot(enemy[0] - (sirka//2 - x), enemy[1] - (vyska//2 - y))
-        if menu == False and vzdalenost  > 150:
-            enemy[0] += math.cos(math.radians(-enemy_uhel)) * 0.8
-            enemy[1] += math.sin(math.radians(-enemy_uhel)) * 0.8
-        draw("&\\saws" + str(sawindex), enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=4)
-        draw("&\\sawer", enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=6)
-        draw("&\\trays" + str(trayindex), enemy[0] +x, enemy[1] +y, enemy_uhel, vrstva=6)
+        spawn_circle = pygame.math.Vector2(sirka//2, 0).rotate(direction) + ship_center
+        enemies.append(Sawer(spawn_circle, direction - 180))
+        enemy_spawn_time = actual_time + random.randint(1500,6000)
 
-        #animation
-        if sawcounter < aktualni_cas and menu == False:
-            sawcounter = aktualni_cas + 100
-            sawindex += 1
-            if sawindex >= os.listdir(assets("enemies/sawer/saws")).__len__():
-                sawindex = 0
+    if not menu:
+        for laser in lasers:
+            laser.move(pygame.math.Vector2(velocity_x, -velocity_y), direction_shif, ship_center)
+        for enemy in enemies:
+            enemy.move((sirka//2 - x, vyska//2 - y))
+            enemy.collisions()
 
-        if traycounter < aktualni_cas and menu == False:
-            traycounter = aktualni_cas + 100
-            trayindex += 1
-            if trayindex >= os.listdir(assets("enemies/sawer/trays")).__len__():
-                trayindex = 0
-        if vzdalenost <= 500 and menu == False:
-            if colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal")>0 and health >= 0:
-                health -= 0.5 * colison("saws0", enemy[0], enemy[1], enemy_uhel, sirka//2 - x, vyska//2 - y, uhel_lode, laser_texture="normal") / 100
-        colide_lasers = enemyrect.collidelistall(lasers_rect)
-        uhlopricka = math.sqrt(textures[entexture].get_width() ** 2 + textures[entexture].get_height() ** 2)
-        for index, laser in enumerate(lasers):
-            if index in colide_lasers:
-                print("laser " + str(index) + " colide")
-                if enemy[3] > 0: 
-                    if colison("sawer", enemy[0] + x, enemy[1] + y, enemy_uhel, laser[0], laser[1], laser[2] + 90, laser_texture="red_laser_" + str(laser[5]) + ".png") > 0:
-                        enemy[3] -= laser[3]
-                        print("enemy health: " + str(enemy[3]))
-                        if laser not in lasery_k_vymazani:
-                            lasery_k_vymazani.append(laser)
-                        if enemy not in enemies_k_vymazani and enemy[3] <= 0:
-                            enemies_k_vymazani.append(enemy)
-
-    for laser in lasery_k_vymazani:
+    for laser in lasers_for_ereasing:
         if laser in lasers:
             lasers.remove(laser)
-    for enemy in enemies_k_vymazani:
+    for enemy in enemies_for_ereasing:
         if enemy in enemies:
             enemies.remove(enemy)
 
@@ -553,6 +700,11 @@ while bezi:
     x -= velocity_x
     y += velocity_y
     draw()
+
+    for enemy in enemies:
+        enemy.draw(okno)
+    for laser in lasers:
+        laser.draw(okno)
 
     #status bar
     if health < 0 and menu == False:
@@ -646,6 +798,13 @@ while bezi:
                 no_rect = text_no.get_rect(center=(sirka//2 + 100, vyska//2 + 50*vyska/1080))
             okno.blit(text_yes, yes_rect)  
             okno.blit(text_no, no_rect)
+    
+    if debug:
+        aktualni_fps = int(hodiny.get_fps())
+        fps_text = retro_font.render(f"FPS: {aktualni_fps}", True, (0, 255, 0))
+        fps_rect = fps_text.get_rect(topright=(sirka - 10, 10))
+        okno.blit(fps_text, fps_rect)
+
     #omezovac snímků za sekundu
     pygame.display.flip()
     hodiny.tick(50)
